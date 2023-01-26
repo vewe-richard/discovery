@@ -1,0 +1,9 @@
+https://zhuanlan.zhihu.com/p/349197066
+http://www.spread.org/docs/guide/users_guide.pdf
+
+./configure --prefix=..../install
+make
+make install
+
+
+LD_LIBRARY_PATH=/home/richard/work/2022/edgecompute/tmp/spread/spread-src-4.4.0/install/lib/ ./main
