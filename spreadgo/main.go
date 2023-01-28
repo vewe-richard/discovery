@@ -34,10 +34,10 @@ int cgo_SP_disconnect(){
 	return SP_disconnect( Mbox );
 }
 
-int cgo_SP_multicast() {
+int cgo_SP_multicast(char *msg, int msglen) {
 	int ret;
 
-	ret= SP_multicast( Mbox, SAFE_MESS, "0", 1, 13, "jiangjqian" );
+	ret= SP_multicast( Mbox, SAFE_MESS, "0", 1, msglen, msg);
 	return ret;
 }
 
@@ -45,13 +45,67 @@ int cgo_SP_multicast() {
 
 */
 import "C"
-import "fmt"
+import (
+	"fmt"
+	"github.com/hashicorp/mdns"
+	"log"
+	"os"
+)
 
-//Test
-//spread-src-4.4.0/install$ ./sbin/spread
-//spread-src-4.4.0/install$ ./bin/spuser   #inpput>j 0  //join group 0
-//spread-src-4.4.0/install$ ./bin/spuser -u root  #input>s 0 //send message to group 0
+/* How to test spread?
+spread-src-4.4.0/install$ ./sbin/spread
+spread-src-4.4.0/install$ ./bin/spuser   #inpput>j 0  //join group 0
+spread-src-4.4.0/install$ ./bin/spuser -u root  #input>s 0 //send message to group 0
+spreadgo$ go build main.go
+spreadgo$ LD_LIBRARY_PATH=/home/richard/work/2022/edgecompute/tmp/spread/spread-src-4.4.0/install/lib/ ./main
+*/
 func main() {
+	if len(os.Args) < 2 {
+		log.Fatal("Please specify a command\n", usage())
+	}
+	if os.Args[1] == "testSpread" {
+		testSpread()
+	} else if os.Args[1] == "mdnsServer" {
+		mdnsServer()
+	} else if os.Args[1] == "run" {
+		fmt.Println("run")
+		run()
+	} else {
+		fmt.Println("Please specify a valid command")
+		fmt.Println(usage())
+	}
+}
+
+func usage() string {
+	return "mdnsDiscovery [testSpread | mdnsServer | run]"
+}
+
+func run() {
+	// Make a channel for results and start listening
+	entriesCh := make(chan *mdns.ServiceEntry, 4)
+	go func() {
+		for entry := range entriesCh {
+			fmt.Printf("Got new entry: %v\n", entry)
+		}
+	}()
+
+	// Start the lookup
+	mdns.Lookup("_foobar._tcp", entriesCh)
+	close(entriesCh)
+}
+
+func mdnsServer() {
+	// Setup our service export
+	host, _ := os.Hostname()
+	info := []string{"My awesome service"}
+	service, _ := mdns.NewMDNSService(host, "_foobar._tcp", "", "", 8000, nil, info)
+
+	// Create the mDNS server, defer shutdown
+	server, _ := mdns.NewServer(&mdns.Config{Zone: service})
+	defer server.Shutdown()
+}
+
+func testSpread() {
 	v := C.version{}
 	C.SP_version(&v.mver, &v.miver, &v.pver)
 	fmt.Println("spread version: ", v.mver, v.miver, v.pver)
@@ -65,7 +119,8 @@ func main() {
 	}
 	fmt.Println("Connected to spread daemon")
 
-	C.cgo_SP_multicast()
+	msg := "hello world"
+	C.cgo_SP_multicast(C.CString(msg), C.int(len(msg)))
 
 	ret = C.cgo_SP_disconnect()
 	fmt.Println("Disconnect ", ret)
