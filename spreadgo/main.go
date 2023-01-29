@@ -50,6 +50,7 @@ import (
 	"github.com/hashicorp/mdns"
 	"log"
 	"os"
+	"time"
 )
 
 /* How to test spread?
@@ -65,8 +66,10 @@ func main() {
 	}
 	if os.Args[1] == "testSpread" {
 		testSpread()
-	} else if os.Args[1] == "mdnsServer" {
-		mdnsServer()
+	} else if os.Args[1] == "mdnsTestService" {
+		mdnsTestService()
+	} else if os.Args[1] == "mdnsTestLookup" {
+		mdnsTestLookup()
 	} else if os.Args[1] == "run" {
 		fmt.Println("run")
 		run()
@@ -77,10 +80,14 @@ func main() {
 }
 
 func usage() string {
-	return "mdnsDiscovery [testSpread | mdnsServer | run]"
+	return "mdnsDiscovery [testSpread | mdnsTestService | mdnsTestLookup | run]"
 }
 
 func run() {
+
+}
+
+func mdnsTestLookup() {
 	// Make a channel for results and start listening
 	entriesCh := make(chan *mdns.ServiceEntry, 4)
 	go func() {
@@ -94,7 +101,7 @@ func run() {
 	close(entriesCh)
 }
 
-func mdnsServer() {
+func mdnsTestService() {
 	// Setup our service export
 	host, _ := os.Hostname()
 	info := []string{"My awesome service"}
@@ -103,6 +110,10 @@ func mdnsServer() {
 	// Create the mDNS server, defer shutdown
 	server, _ := mdns.NewServer(&mdns.Config{Zone: service})
 	defer server.Shutdown()
+	for true {
+		fmt.Println("sleep")
+		time.Sleep(1000000000)
+	}
 }
 
 func testSpread() {
