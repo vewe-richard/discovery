@@ -3,8 +3,8 @@ package main
 /*
 //Spread API Reference http://www.spread.org/docs/guide/users_guide.pdf
 #cgo CFLAGS: -I../spread-src-4.4.0/include/
-#cgo LDFLAGS: -L../spread-src-4.4.0/install/lib -lm -lspread-core -ldl
-//-static
+#cgo LDFLAGS: -static -L../spread-src-4.4.0/install/lib -lm -lspread-core -ldl
+
 #include <stdio.h>
 #include <sp.h>
 typedef struct {
@@ -46,6 +46,7 @@ int cgo_SP_multicast(char *msg, int msglen) {
 */
 import "C"
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/mdns"
 	"log"
@@ -84,7 +85,34 @@ func usage() string {
 }
 
 func run() {
+	ret := C.cgo_SP_connect_timeout()
+	if ret != C.ACCEPT_SESSION {
+		fmt.Println("Connect failed ", ret)
+		return
+	}
+	fmt.Println("Connected to spread daemon")
 
+	entriesCh := make(chan *mdns.ServiceEntry, 4)
+	go func() {
+		for {
+			entry := <-entriesCh
+			sendToSpreadBus(entry)
+		}
+	}()
+
+	// Start the lookup
+	fmt.Println("Lookup")
+	mdns.Lookup("_foobar._tcp", entriesCh)
+	time.Sleep(1000000000)
+	close(entriesCh)
+	C.cgo_SP_disconnect()
+}
+
+func sendToSpreadBus(entry *mdns.ServiceEntry) {
+	b, _ := json.Marshal(entry)
+	msg := string(b)
+	fmt.Printf("Got new entry: %v\n", msg)
+	C.cgo_SP_multicast(C.CString(msg), C.int(len(msg)))
 }
 
 func mdnsTestLookup() {
